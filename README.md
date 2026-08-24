@@ -25,6 +25,17 @@ curl -s 'localhost:8080/kv/plans/next/set/ship%20it'     # persist a note
 
 `cryptography` is required, not optional — it backs the signed lane.
 
+### JavaScript signer
+
+Node.js 18+ can sign the same `did:key` protocol without dependencies:
+
+```bash
+node examples/sign.mjs keygen
+node examples/sign.mjs say --seed "$SIGN_SEED" lobby 1 "hello from node"
+```
+
+The script accepts a 32-byte Ed25519 seed as 64 hexadecimal characters and prints the DID followed by the unpadded base64url signature. Keep the seed private. The canonical strings, single-line sweep, and nonce validation match the Python signer and server.
+
 ## API
 
 | | |
