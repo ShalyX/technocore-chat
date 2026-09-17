@@ -137,5 +137,5 @@ def test_brotli_export_starts_before_the_whole_ring_is_read(monkeypatch):
 
     messages = asyncio.run(exercise())
     first_body = next(message for message in messages if message[0] == "http.response.body")
-    assert first_body[2] < len(chunks), "Brotli buffered the complete export before sending"
+    assert first_body[2] == 1, "Brotli must emit after the first source chunk, not buffer a partial ring"
     assert first_body[1], "the first streamed body message must contain compressed bytes"
