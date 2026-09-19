@@ -176,6 +176,21 @@ def test_a_reap_reconciles_a_drifted_count(tmp_path, monkeypatch) -> None:
     assert store._note_count(tmp_path) == 3
 
 
+def test_reap_does_not_double_count_a_create_seen_by_the_walk(tmp_path) -> None:
+    """A create completed between the before/after snapshots and was also seen by the
+    walk. Its reservation must not be added a second time to the files the walk kept."""
+    import store
+
+    count = tmp_path / store.NOTES_FILE
+    count.write_text("10 100")
+    # The walk saw the newly-created eleventh note, while `after` includes its reservation.
+    count.write_text("11 110")
+
+    store._settle_count(tmp_path, store.NOTES_FILE, (10, 100), [11, 110])
+
+    assert store._note_totals(tmp_path) == (11, 110)
+
+
 def test_a_second_writer_cannot_consume_the_first_writers_staging_file(
     tmp_path, monkeypatch
 ) -> None:

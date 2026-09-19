@@ -1560,9 +1560,9 @@ def _settle_count(root: Path, name: str, before: tuple[int, int] | None, kept: l
     and nothing part-done: a reservation given back (a `?if=` refusal on a fresh key counts
     -1) is bracketed by the same two readings as its own `+1`, and `after - before` is exactly
     the number that landed. Each of those is either in `kept` or missed by the walk, so the
-    figure written is the truth plus however many of them the walk happened to see — never
-    below the disk, exact on a quiet store, and re-established from a fresh walk on the next
-    pass, so the error never accumulates. `_reap` runs one pass at a time service-wide, which
+    figure written is the truth plus however many of them the walk missed — never below the
+    files it saw, and never above the post-walk reservation count. A fresh walk on the next
+    pass re-establishes the exact figure. `_reap` runs one pass at a time service-wide, which
     is what keeps this a window and not an interleaving of two.
 
     A `before` that did not parse — a lost or pre-format counter file, the case `_note_totals`
@@ -1580,8 +1580,11 @@ def _settle_count(root: Path, name: str, before: tuple[int, int] | None, kept: l
             if before is None:
                 total, size = max(kept[0], after[0]), kept[1]
             else:
-                total = kept[0] + max(0, after[0] - before[0])
-                size = kept[1] + max(0, after[1] - before[1])
+                # A create that landed during the walk is already in `kept` when the
+                # directory scan saw it. Cap the reconciliation at `after` so that the
+                # same reservation is not counted once by each side of the window.
+                total = max(kept[0], min(after[0], kept[0] + max(0, after[0] - before[0])))
+                size = max(kept[1], min(after[1], kept[1] + max(0, after[1] - before[1])))
             _write_note_count(root, total, size, name=name)
     except OSError:
         pass
