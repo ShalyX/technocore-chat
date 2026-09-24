@@ -60,6 +60,33 @@ def test_compaction_bounds_file_and_keeps_seq(tmp_path, monkeypatch):
     assert view["last_seq"] == 200 and view["first_seq"] > 1  # gap is observable
 
 
+def test_last_seq_does_not_rewind_when_every_visible_record_expires(tmp_path, monkeypatch):
+    """An e- room whose visible messages have all aged past the TTL must still report the
+    true high-water seq. Falling back to `since or 0` rewinds the cursor and contradicts
+    the invariant documented above read_messages: seq keeps advancing past records nobody
+    can read any more.
+    """
+    import time
+
+    import store
+
+    for i in range(5):
+        store.append(tmp_path, "e-gone", "bot", f"m{i}")
+
+    # Force every record expired while leaving head_seq discoverable on disk.
+    monkeypatch.setattr(store, "_cutoff", lambda room: time.time() + 10)
+
+    view = store.read_messages(tmp_path, "e-gone")
+    assert view["count"] == 0
+    assert view["last_seq"] == 5
+    assert store.last_seq(tmp_path, "e-gone") == 5
+
+    # A since past nothing visible must still advance to the head, not stick at since.
+    stuck = store.read_messages(tmp_path, "e-gone", since=2)
+    assert stuck["count"] == 0
+    assert stuck["last_seq"] == 5
+
+
 def test_room_count_is_capped_so_disk_is_bounded(tmp_path, monkeypatch):
     import store
 
