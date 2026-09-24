@@ -269,11 +269,14 @@ class StoreLifecycle(RuleBasedStateMachine):
         if seqs:
             assert view["last_seq"] == seqs[-1]
         else:
-            # Empty window: report the room high-water mark, never rewind to since/0.
-            # head_seq is the newest parsed record (expired or not); store.last_seq agrees.
-            assert view["last_seq"] == store.last_seq(self.root, room), (
-                "empty window must report the room high-water, not rewind to since"
-            )
+            # Empty window: on-disk/floor head, except a plain read of a reaped name stays 0.
+            path = store.room_path(self.root, room)
+            if since is None and not path.exists():
+                assert view["last_seq"] == 0, "plain read of a reaped room stays at 0 (#585)"
+            else:
+                assert view["last_seq"] == store.last_seq(self.root, room), (
+                    "empty window reports room high-water (clamp past-head, advance expired)"
+                )
         for message in view["messages"]:
             assert (message["from"], message["text"]) == self.said[room][message["seq"]]
 

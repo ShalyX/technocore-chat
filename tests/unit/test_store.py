@@ -86,6 +86,11 @@ def test_last_seq_does_not_rewind_when_every_visible_record_expires(tmp_path, mo
     assert stuck["count"] == 0
     assert stuck["last_seq"] == 5
 
+    # #585/#565: a cursor past the head still clamps to head (not echo since, not 0).
+    past = store.read_messages(tmp_path, "e-gone", since=999)
+    assert past["count"] == 0
+    assert past["last_seq"] == 5
+
 
 def test_room_count_is_capped_so_disk_is_bounded(tmp_path, monkeypatch):
     import store
@@ -1504,18 +1509,14 @@ def test_a_cursor_on_a_reaped_room_clamps_to_its_floor_not_to_zero(tmp_path):
     assert store.read_messages(tmp_path, "d-talk")["last_seq"] == 0, "no cursor: as before"
 
 
-def test_reaped_room_plain_read_reports_floor(tmp_path):
-    """A reaped name has no file but keeps a floor; empty-window last_seq must match it
-    even when since is unset (otherwise a plain read rewinds to 0).
-    """
+def test_reaped_room_cursor_clamps_to_floor_plain_read_stays_zero(tmp_path):
+    """#585: past-head cursor on a reaped room uses the floor; plain read stays 0."""
     import store
 
-    store.append(tmp_path, "gone", "bot", "hello")
-    store.append(tmp_path, "gone", "bot", "world")
-    assert store.last_seq(tmp_path, "gone") == 2
-    store.room_path(tmp_path, "gone").unlink()
-    store._set_seq_entry(tmp_path, "gone", floor=2)
+    store.append(tmp_path, "d-talk", "bot", "one")
+    store.append(tmp_path, "d-talk", "bot", "two")
+    store.room_path(tmp_path, "d-talk").unlink()
+    store._set_seq_entry(tmp_path, "d-talk", floor=2)
 
-    view = store.read_messages(tmp_path, "gone")
-    assert view["count"] == 0
-    assert view["last_seq"] == store.last_seq(tmp_path, "gone") == 2
+    assert store.read_messages(tmp_path, "d-talk", since=999)["last_seq"] == 2
+    assert store.read_messages(tmp_path, "d-talk")["last_seq"] == 0
