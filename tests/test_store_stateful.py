@@ -269,7 +269,11 @@ class StoreLifecycle(RuleBasedStateMachine):
         if seqs:
             assert view["last_seq"] == seqs[-1]
         else:
-            assert view["last_seq"] <= (since or 0), "last_seq must clamp to head, not echo since"
+            # Empty window: report the room high-water mark, never rewind to since/0.
+            # head_seq is the newest parsed record (expired or not); store.last_seq agrees.
+            assert view["last_seq"] == store.last_seq(self.root, room), (
+                "empty window must report the room high-water, not rewind to since"
+            )
         for message in view["messages"]:
             assert (message["from"], message["text"]) == self.said[room][message["seq"]]
 

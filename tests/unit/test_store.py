@@ -1502,3 +1502,20 @@ def test_a_cursor_on_a_reaped_room_clamps_to_its_floor_not_to_zero(tmp_path):
     assert store.read_messages(tmp_path, "d-talk", since=6)["last_seq"] == 6, "caught up: kept"
     assert store.read_messages(tmp_path, "d-talk", since=999)["last_seq"] == 6, "past it: clamped"
     assert store.read_messages(tmp_path, "d-talk")["last_seq"] == 0, "no cursor: as before"
+
+
+def test_reaped_room_plain_read_reports_floor(tmp_path):
+    """A reaped name has no file but keeps a floor; empty-window last_seq must match it
+    even when since is unset (otherwise a plain read rewinds to 0).
+    """
+    import store
+
+    store.append(tmp_path, "gone", "bot", "hello")
+    store.append(tmp_path, "gone", "bot", "world")
+    assert store.last_seq(tmp_path, "gone") == 2
+    store.room_path(tmp_path, "gone").unlink()
+    store._set_seq_entry(tmp_path, "gone", floor=2)
+
+    view = store.read_messages(tmp_path, "gone")
+    assert view["count"] == 0
+    assert view["last_seq"] == store.last_seq(tmp_path, "gone") == 2

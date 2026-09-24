@@ -918,7 +918,10 @@ def read_messages(
             if len(out) >= limit:
                 break
     out.reverse()
-    if not head_seq and since:  # no record on disk: a reaped room resumes from its floor (#139)
+    # No on-disk head: a reaped room still has a floor high-water (#139). Apply it for every
+    # empty window, not only when `since` is set — otherwise last_seq rewinds to 0 on a plain
+    # read of a reaped name and disagrees with last_seq().
+    if not head_seq:
         head_seq = _seq_field(root, room, "floor")
     return {
         "room": room,
