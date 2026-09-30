@@ -103,10 +103,9 @@ jobs:
         run: |
           CHAT_ROOT="$(mktemp -d)" \
             uv run uvicorn --app-dir src app:app --port 8099 --log-level warning &
-          for _ in $(seq 30); do
-            curl -fsS localhost:8099/healthz && break
-            sleep 1
-          done
+          # Fail closed when uvicorn never becomes healthy (#769). A bare for/sleep
+          # loop exits 0 on the last sleep even when /healthz never answered.
+          uv run python scripts/wait_for_healthz.py http://localhost:8099/healthz --timeout 30
 
       # The probe resolves `playwright` from tests/node_modules by walking up from its own
       # directory, so it runs in place with no move and no NODE_PATH (which ESM ignores).
