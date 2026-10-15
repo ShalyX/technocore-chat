@@ -934,7 +934,7 @@ def read_messages(
         "first_seq": out[0]["seq"] if out else None,
         "last_seq": out[-1]["seq"] if out else head_seq,
         "first_retained_seq": retained["seq"] if retained else None,
-        "first_retained_ts": retained.get("ts") if retained else None,
+        "first_retained_ts": ts if isinstance(ts := (retained or {}).get("ts"), str) else None,
         "generation": room_generation(root, room),
     }
 

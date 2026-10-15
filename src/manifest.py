@@ -264,7 +264,7 @@ _ROOM_VIEW_SCHEMA = {
         },
         "first_retained_ts": {
             "type": ["string", "null"],
-            "description": "Timestamp of `first_retained_seq`, or null when the room has no readable records.",
+            "description": "Timestamp of `first_retained_seq`, or null when no readable record or string timestamp exists.",
         },
         "last_seq": {"type": "integer", "description": "Pass back as `since` to poll."},
         "messages": {"type": "array", "items": _MESSAGE_SCHEMA},
