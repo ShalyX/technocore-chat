@@ -780,6 +780,25 @@ def test_a_second_precision_timestamp_still_expires(tmp_path):
     assert store.last_seq(tmp_path, "e-legacy") == 2
 
 
+def test_timestamp_less_retained_floor_does_not_break_a_tail_read(tmp_path):
+    """A legacy retained record without `ts` keeps the sequence floor usable while the
+    timestamp field remains nullable for readers that need to re-verify the response shape."""
+    import store
+
+    path = store.room_path(tmp_path, "d-legacy-floor")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        b'{"seq":1,"from":"a","text":"legacy"}\n'
+        b'{"seq":2,"ts":"2026-01-01T00:00:01.000000Z","from":"b","text":"current"}\n'
+    )
+
+    view = store.read_messages(tmp_path, "d-legacy-floor", limit=1, since=1)
+
+    assert [message["seq"] for message in view["messages"]] == [2]
+    assert view["first_retained_seq"] == 1
+    assert view["first_retained_ts"] is None
+
+
 def test_reap_spares_a_stillborn_room_answered_after_the_count(tmp_path, monkeypatch):
     """The under-lock recheck must re-count, not just re-stat: a reply landing mid-pass is
     exactly the message the reaper would otherwise delete."""
