@@ -726,6 +726,32 @@ def test_a_malformed_note_post_names_the_note_shape_to_send_next(client):
     assert "body must be JSON" in response.text
 
 
+def test_duplicate_json_names_are_refused_before_room_or_note_writes(client):
+    room = client.post(
+        "/r/duplicate-json",
+        content=b'{"from":"one","from":"two","text":"hello"}',
+        headers={"content-type": "application/json"},
+    )
+    note = client.post(
+        "/kv/duplicate-json/value",
+        content=b'{"value":"one","value":"two"}',
+        headers={"content-type": "application/json"},
+    )
+    assert room.status_code == note.status_code == 400
+    assert "repeated JSON object name" in room.text
+    assert client.get("/r/duplicate-json?format=json").json()["messages"] == []
+    assert client.get("/kv/duplicate-json/value").status_code == 404
+
+
+def test_identical_duplicate_json_names_are_not_an_exception(client):
+    response = client.post(
+        "/r/duplicate-json-identical",
+        content=b'{"from":"same","from":"same","text":"hello"}',
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 400
+
+
 def test_numeric_inputs_cannot_overflow_or_amplify(client, tmp_path):
     import app as app_module
     import store

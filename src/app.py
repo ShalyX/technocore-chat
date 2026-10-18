@@ -1404,6 +1404,12 @@ def room_say_signed(request: Request) -> Response:
     return respond(request, {**view, "posted": rec}, note=budget_note("write", left, RATE_WRITE))
 
 
+def _reject_duplicate_names(pairs):
+    if len({key for key, _ in pairs}) != len(pairs):
+        raise ValueError("repeated JSON object name")
+    return dict(pairs)
+
+
 async def read_json(request: Request) -> dict | Response:
     """Refuse on Content-Length, then cap the stream.
 
@@ -1415,15 +1421,10 @@ async def read_json(request: Request) -> dict | Response:
     The total deadline bounds time as well as bytes: a trickling caller otherwise holds
     a connection forever, since uvicorn's keep-alive timeout excludes active requests.
     """
-    too_large = (
-        f"413 body too large: the cap is {MAX_BODY} bytes, which fits the documented "
-        f"{store.MAX_TEXT_CHARS}-character message and {store.MAX_VALUE_CHARS}-character "
-        "note limits in any JSON encoding.\n"
-        "split the value before encoding it — messages can use multiple room lines, and "
-        "large note data can use multiple keys."
-    )
-    declared = _cursor(request.headers.get("content-length"), 0)
-    if declared and declared > MAX_BODY:
+    too_large = f"413 body too large: the cap is {MAX_BODY} bytes, which fits the documented "
+    too_large += f"{store.MAX_TEXT_CHARS}-character message and {store.MAX_VALUE_CHARS}-character note limits in any JSON encoding.\n"
+    too_large += "split the value before encoding it — messages can use multiple room lines, and large note data can use multiple keys."
+    if (declared := _cursor(request.headers.get("content-length"), 0)) and declared > MAX_BODY:
         return text(f"{too_large}\nyour Content-Length said {declared} bytes.", 413)
     raw = bytearray()
     try:
@@ -1436,12 +1437,10 @@ async def read_json(request: Request) -> dict | Response:
         expired = f"408 body upload exceeded {BODY_TIMEOUT:g}s. Send complete JSON promptly; retry on a new connection."
         return text(expired, 408, extra_headers={"Connection": "close"})
     try:
-        # orjson here, stdlib json for the three documents below. orjson is ~4.7x on the
-        # parse and, on a service whose whole job is hostile input, refuses the
-        # `NaN`/`Infinity` literals stdlib accepts — the same non-finite tokens
-        # config._finite_env already refuses to boot with. The documents keep stdlib
-        # because they are published with indent=1 and orjson only offers indent 2.
-        payload = orjson.loads(bytes(raw) if raw else b"{}")
+        # Keep orjson's strict number handling, then use its decoded bytes with a pair hook
+        # so duplicate semantic names cannot be silently resolved by last-value-wins parsing.
+        orjson.loads(raw_json := bytes(raw) if raw else b"{}")
+        payload = json.loads(raw_json, object_pairs_hook=_reject_duplicate_names)
     except ValueError as exc:
         return text(
             f"400 body must be JSON, and this did not parse: {exc}.\n"
