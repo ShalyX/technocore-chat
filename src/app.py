@@ -1437,8 +1437,8 @@ async def read_json(request: Request) -> dict | Response:
         expired = f"408 body upload exceeded {BODY_TIMEOUT:g}s. Send complete JSON promptly; retry on a new connection."
         return text(expired, 408, extra_headers={"Connection": "close"})
     try:
-        # Keep orjson's strict number handling, then use its decoded bytes with a pair hook
-        # so duplicate semantic names cannot be silently resolved by last-value-wins parsing.
+        # Keep orjson's strict number handling, then apply a pair hook so duplicate
+        # semantic names cannot be silently resolved by last-value-wins parsing.
         orjson.loads(raw_json := bytes(raw) if raw else b"{}")
         payload = json.loads(raw_json, object_pairs_hook=_reject_duplicate_names)
     except ValueError as exc:

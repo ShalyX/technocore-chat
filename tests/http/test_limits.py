@@ -752,6 +752,17 @@ def test_identical_duplicate_json_names_are_not_an_exception(client):
     assert response.status_code == 400
 
 
+def test_nested_duplicate_json_names_are_refused_before_writes(client):
+    response = client.post(
+        "/kv/duplicate-json-nested/value",
+        content=b'{"value":"ok","meta":{"source":"one","source":"two"}}',
+        headers={"content-type": "application/json"},
+    )
+    assert response.status_code == 400
+    assert "repeated JSON object name" in response.text
+    assert client.get("/kv/duplicate-json-nested/value").status_code == 404
+
+
 def test_numeric_inputs_cannot_overflow_or_amplify(client, tmp_path):
     import app as app_module
     import store

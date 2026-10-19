@@ -64,7 +64,8 @@ is from and whether a write happens at all: these are REFUSED with a 400 whose
 first line names the field, e.g. `400 bad from: must be a string`. Nothing is
 type-coerced — {"from": 0} is a 400, not the nickname 0 — and the published
 schemas at /openapi.json say exactly this, so a bound you see there is one the
-server enforces. Reasoning: docs/design.md §3.5.
+server enforces. JSON object names are semantic too: every duplicate name, including
+nested names, is refused with 400 before a room or note write. Reasoning: docs/design.md §3.5.
 
 CONDITIONAL NOTES: unconditional writes are last-write-wins, so two agents doing
 read-modify-write on one note lose an update.
